@@ -17,7 +17,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Fetch raw class page
+      - name: Fetch raw Ascension pages
         run: |
           python - <<'PY'
           import re
@@ -25,32 +25,43 @@ jobs:
           import urllib.request
           from pathlib import Path
 
-          url = "https://db.ascension.gg/?spells=7.12"
           out = Path("ascension-db-work")
           out.mkdir(parents=True, exist_ok=True)
-          req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0", "Accept-Language": "en-US,en;q=0.9"})
-          with urllib.request.urlopen(req, timeout=60, context=ssl.create_default_context()) as response:
-              raw = response.read()
-              status = response.status
-              final_url = response.geturl()
-              content_type = response.headers.get("Content-Type")
-          html = raw.decode("utf-8", errors="replace")
-          (out / "class12.html").write_text(html, encoding="utf-8")
+          ctx = ssl.create_default_context()
+
+          def fetch(url: str) -> str:
+              req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0", "Accept-Language": "en-US,en;q=0.9"})
+              with urllib.request.urlopen(req, timeout=60, context=ctx) as response:
+                  raw = response.read()
+                  print(response.status, response.geturl(), len(raw), response.headers.get("Content-Type"))
+              return raw.decode("utf-8", errors="replace")
+
+          class_html = fetch("https://db.ascension.gg/?spells=7.12")
+          (out / "class12.html").write_text(class_html, encoding="utf-8")
+
           lines = [
-              f"status={status}", f"final_url={final_url}", f"bytes={len(raw)}", f"chars={len(html)}",
-              f"content_type={content_type}", f"listview_count={html.count('new Listview(')}",
-              f"spell_link_count={len(re.findall(r'\\?spell=\\d+', html))}", ""
+              f"class_chars={len(class_html)}",
+              f"class_listview_count={class_html.count('new Listview(')}",
+              f"class_spell_link_count={len(re.findall(r'\\?spell=\\d+', class_html))}",
           ]
-          for pattern in ["new Listview(", "data:", "template: 'spell'", 'template: "spell"', "g_spells", "lv_spells"]:
-              positions = [m.start() for m in re.finditer(re.escape(pattern), html)]
-              lines.append(f"PATTERN {pattern!r}: {positions[:30]}")
-          lines.append("")
-          for i, match in enumerate(re.finditer(re.escape("new Listview("), html)):
-              start = max(0, match.start() - 300)
-              end = min(len(html), match.start() + 20000)
-              lines.extend([f"===== LISTVIEW {i + 1} @ {match.start()} =====", html[start:end], ""])
+          for pattern in ["new Listview(", "\"data\":[", "g_spells"]:
+              positions = [m.start() for m in re.finditer(re.escape(pattern), class_html)]
+              lines.append(f"CLASS PATTERN {pattern!r}: {positions[:30]}")
+
+          for spell_id in (500918, 500995):
+              html = fetch(f"https://db.ascension.gg/?spell={spell_id}")
+              (out / f"spell-{spell_id}.html").write_text(html, encoding="utf-8")
+              lines.append("")
+              lines.append(f"===== SPELL {spell_id} chars={len(html)} =====")
+              for pattern in ["g_spells", "spelldetails", "Duration", "Cooldown", "Effect #", "btt", "new Listview(", "name_enus", "tooltip"]:
+                  positions = [m.start() for m in re.finditer(re.escape(pattern), html)]
+                  lines.append(f"SPELL {spell_id} PATTERN {pattern!r}: {positions[:20]}")
+              pos = html.find('id="spelldetails"')
+              if pos >= 0:
+                  lines.append(html[max(0, pos - 1000):pos + 30000])
+
           (out / "inspection.txt").write_text("\n".join(lines), encoding="utf-8")
-          print("\n".join(lines[:20]))
+          print("\n".join(lines[:30]))
           PY
       - uses: actions/upload-artifact@v4
         with:
