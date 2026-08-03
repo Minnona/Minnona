@@ -1,2 +1,2 @@
 Trigger the temporary Ascension database inspection workflow.
-Run 2.
+Run 3: inspect spell detail pages.
