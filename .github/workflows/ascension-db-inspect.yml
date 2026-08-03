@@ -45,7 +45,7 @@ jobs:
               positions = [m.start() for m in re.finditer(re.escape(pattern), html)]
               lines.append(f"PATTERN {pattern!r}: {positions[:30]}")
           lines.append("")
-          for i, match in enumerate(re.finditer(r"new Listview\\(", html)):
+          for i, match in enumerate(re.finditer(re.escape("new Listview("), html)):
               start = max(0, match.start() - 300)
               end = min(len(html), match.start() + 20000)
               lines.extend([f"===== LISTVIEW {i + 1} @ {match.start()} =====", html[start:end], ""])
