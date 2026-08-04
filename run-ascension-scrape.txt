@@ -1,2 +1,0 @@
-Trigger the temporary Ascension database inspection workflow.
-Run 4: full classes 12-32 extraction.
